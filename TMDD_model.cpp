@@ -13,13 +13,10 @@ ka = 1.0       // First-order absorption rate constant (1/day)
 F1 = 1.0       // Bioavailability
 
 // Rate constants
-kel = 0.046    // Elimination of ligand from central compartment (1/day)
-kep = 0.170    // Elimination of complex (1/day)
-kout = 17.3    // Elimination of receptor (1/day)
+kint = 0.170    // Elimination of complex (1/day)
+kdeg = 17.3    // Elimination of receptor (1/day)
 koff = 169     // Dissociation rate (1/day)
 kon = 30.2     // Binding rate (1/(nM*day))
-ktp = 0.725    // Ligand transfer rate tissue->central (1/day)
-kpt = 0.902    // Ligand transfer rate central->tissue (1/day)
 Rc0 = 0.00657  // Initial receptor concentration (nM)
 Vc = 0.04      // Volume of central compartment (L/kg)
 MWlig = 150000 // Molecular weight of ligand (Da)
@@ -28,28 +25,26 @@ MWlig = 150000 // Molecular weight of ligand (Da)
 DEPOT   // Depot compartment for absorption
 CENT    // Central compartment (for PK)
 PERIPH  // Peripheral compartment (for PK)
-Rc  // Free receptor
-Pc  // Drug-receptor complex
-Lt  // Free ligand in tissue compartment
+R  // Free receptor
+DR  // Drug-receptor complex
 
 [MAIN]
 double k10 = CL/V1;     // Elimination rate constant
 double k12 = Q/V1;      // Distribution rate constant (central to peripheral)
 double k21 = Q/V2;      // Distribution rate constant (peripheral to central)
-double kin = kout * Rc0;  // Receptor synthesis rate (nM/day)
+double ksyn = kdeg * Rc0;  // Receptor synthesis rate (nM/day)
 
 [ODE]
 // Combined two-compartment PK with TMDD
 dxdt_DEPOT = -ka * DEPOT;
-dxdt_CENT = ka * DEPOT -(k10 + k12)*CENT + k21*PERIPH - kon*CENT*Rc + koff*Pc + ktp*Lt - kpt*CENT;
+dxdt_CENT = ka * DEPOT -(k10 + k12)*CENT + k21*PERIPH - kon*CENT*R + koff*DR;
 dxdt_PERIPH = k12*CENT - k21*PERIPH;
-dxdt_Rc = kin - kout*Rc - kon*CENT*Rc + koff*Pc;
-dxdt_Pc = kon*CENT*Rc - koff*Pc - kep*Pc;
-dxdt_Lt = -ktp*Lt + kpt*CENT;
+dxdt_R = ksyn - kdeg*R - kon*CENT*R + koff*DR;
+dxdt_DR = kon*CENT*R - koff*DR - kint*DR;
 
 [TABLE]
-double Lctot = CENT + Pc;    // Total ligand concentration
-double Rctot = Rc + Pc;    // Total receptor concentration
+double Lctot = CENT + DR;    // Total ligand concentration
+double Rctot = R + DR;    // Total receptor concentration
 
 [CAPTURE]
 Lctot
