@@ -43,7 +43,7 @@ dxdt_R = ksyn - kdeg*R - kon*CENT*R + koff*DR;
 dxdt_DR = kon*CENT*R - koff*DR - kint*DR;
 
 [TABLE]
-double Lctot = CENT + DR;    // Total ligand concentration
+double Lctot = CENT + PERIPH + DR;    // Total ligand/drug concentration
 double Rctot = R + DR;    // Total receptor concentration
 
 [CAPTURE]

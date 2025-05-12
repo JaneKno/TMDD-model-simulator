@@ -22,27 +22,39 @@ server <- function(input, output) {
             V1 = input$V1,
             Q = input$Q,
             V2 = input$V2,
-            ka = input$ka,
+            ka = 1.0, # fixed ka value
+            # TMDD parameters
             kon = input$kon,
             koff = input$koff,
-            kep = input$kep,
-            kout = input$kout,
+            kint = input$kep,
+            kdeg = input$kout,
             Rc0 = input$Rc0)
     
-    # Create dosing events
-    dose_nmol <- (input$dose * 1e-3/150000) * 1e9
+    # Parse dose levels
+    if (input$dose_type == "single") {
+        doses <- as.numeric(unlist(strsplit(input$single_doses, ",")))
+    } else {
+        doses <- as.numeric(unlist(strsplit(input$multiple_doses, ",")))
+    }
     
-    data <- expand.ev(ID = 1,
-                      time = 0,
-                      addl = input$numberDoses,
-                      ii = input$interval,
-                      amt = dose_nmol,
-                      cmt = 1)
+    # Create dosing events for all dose levels
+    data <- do.call(rbind, lapply(seq_along(doses), function(i) {
+        dose_nmol <- (doses[i] * 1e-3/150000) * 1e9
+        expand.ev(ID = i,
+                 time = 0,
+                 addl = if(input$dose_type == "multiple") input$numberDoses - 1 else 0,
+                 ii = if(input$dose_type == "multiple") input$interval else 0,
+                 amt = dose_nmol,
+                 cmt = 1)
+    })) %>% 
+      mutate(ID=row_number()) %>% 
+      mutate(DOSE=(amt*150000/1e-3)/1e9)
     
     # Run simulation
     out <- mod %>%
       init(Rc = input$Rc0) %>%
       data_set(data) %>%
+      carry.out(DOSE) %>% 
       mrgsim(end = input$duration, delta = 0.1) %>%
       as.data.frame()
     
@@ -51,23 +63,48 @@ server <- function(input, output) {
   
   # Plot output
   output$tmddPlot <- renderPlot({
-    p <- ggplot(sim_data(), aes(x = time)) +
-      geom_line(aes(y = Lctot, color = "Total Drug")) +
-      geom_line(aes(y = Rctot, color = "Total Receptor")) +
+    # Get selected measurements
+   selected_vars <- c()
+if ("show_total_drug" %in% input$plot_vars) selected_vars <- c(selected_vars, "Lctot")
+if ("show_total_receptor" %in% input$plot_vars) selected_vars <- c(selected_vars, "Rctot")
+if ("show_free_drug" %in% input$plot_vars) selected_vars <- c(selected_vars, "CENT")
+if ("show_free_receptor" %in% input$plot_vars) selected_vars <- c(selected_vars, "R")
+  
+  # Reshape data for faceting
+  plot_data <- sim_data() %>%
+    mutate(DOSE = factor(paste(DOSE, "mg"),
+                        levels = paste(sort(unique(DOSE)), "mg"))) %>%
+    # Select only chosen columns
+    tidyr::pivot_longer(
+      cols = all_of(selected_vars),
+      names_to = "Measurement",
+      values_to = "Concentration"
+    ) %>%
+    mutate(Measurement = factor(Measurement, 
+                              levels = c("Lctot", "Rctot", "CENT", "R"),
+                              labels = c("Total Drug", "Total Receptor", 
+                                       "Free Drug", "Free Receptor")))
+
+    # Create faceted plot
+    p <- ggplot(plot_data, aes(x = time, y = Concentration, color = DOSE)) +
+      geom_line() +
+      facet_wrap(~Measurement, scales = "free_y", ncol = 2) +
       theme_bw() +
       labs(x = "Time (days)",
            y = "Concentration (nM)",
-           color = "",
-           title = "2CMT with TMDD in central Compartment") +
+           color = "Dose"#,
+           #title = "TMDD Model Simulation"
+           ) +
       theme(legend.position = "bottom",
-            axis.line = element_line(colour="black"),
-            panel.grid.major=element_blank(),
+            axis.line = element_line(colour = "black"),
+            panel.grid.major = element_blank(),
             panel.grid.minor = element_blank(),
-            panel.border=element_blank(),
-            text=element_text(size=14),
-            plot.caption=element_text(colour="gray84",size=10))
+            panel.border = element_rect(colour = "black"),
+            text = element_text(size = 14),
+            strip.background = element_rect(fill = "white"),
+            strip.text = element_text(face = "bold"))
     
-    # Add scale based on user selection
+    # Add scale based on user selection with range control
     if(input$scale == "log") {
       p <- p + scale_y_log10(limits = input$y_range)
     } else {
