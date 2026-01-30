@@ -39,7 +39,7 @@ double ksyn = kdeg * Rc0;  // Receptor synthesis rate (nM/day)
 dxdt_DEPOT = -ka * DEPOT;
 dxdt_CENT = ka * DEPOT -(k10 + k12)*CENT + k21*PERIPH - kon*CENT*R + koff*DR;
 dxdt_PERIPH = k12*CENT - k21*PERIPH;
-dxdt_R = ksyn - kdeg*R - kon*CENT*R + koff*DR;
+dxdt_R = ksyn - kdeg*R - kon*CENT*MWlig*10^-6*R + koff*DR;
 dxdt_DR = kon*CENT*R - koff*DR - kint*DR;
 
 [TABLE]
